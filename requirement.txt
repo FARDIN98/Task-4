@@ -1,0 +1,58 @@
+Task #4  
+
+For Front-end just use: Javascript, Typescript, React JS, TailwindCSS latest version, ShadCN
+For Back-end: Node.js, Express.js, PostgreSQL
+
+THE FIRST REQUIREMENT: YOU NEED TO CREATE A UNIQUE INDEX IN DATABASE.
+
+THE SECOND REQUIREMENT: YOUR TABLE SHOULD LOOK LIKE TABLE AND YOUR TOOLBAR SHOULD LOOK LIKE TOOLBAR.
+
+THE THIRD REQUIREMENT: DATA IN THE TABLE SHOULD BE SORTED (E.G., BY THE LAST LOGIN TIME).
+
+THE FOURTH REQUIREMENT: MULTIPLE SELECTION SHOULD BE IMPLEMENTED USING CHECKBOXES (SELECT ALL/DELECT ALL IS ALSO A CHECKBOX).
+
+THE FIFTH REQUIREMENT: BEFORE EACH REQUEST EXCEPT FOR REGISTRATION OR LOGIN, SERVER SHOULD CHECK IF USER EXISTS AND ISN'T BLOCKED (if user account is blocked or deleted, any next user’s request should redirect to the login page).
+
+Create a working and deployed (remotely accessible) Web application with user registration and authentication.
+
+Non-authenticated users should not have access to the user management (admin panel). They have only access to login form or registration form.
+
+Only authenticated non-blocked users should have access the user management table with at least the following fields: (selection checkbox), name, e-mail, last login time (or the last “activity” time or both), status (active/blocked). You also may add registration time, some sparkline for activity, etc. (optional).
+
+The leftmost column of the table should contains checkboxes without labels for multiple selection (table header contains only checkbox without label that selects or deselects all the records).
+
+All users should be able to block or delete themselves or any other user.
+
+User can use any non-empty password (even one character).
+
+No e-mail confirmation should be required.
+
+Blocked user should not be able to login, deleted user can re-register.
+
+JUST IN CASE: YOU HAVE TO CREATE A UNIQUE INDEX IN THE DATABASE. NOT TO CHECK WITH YOU CODE FOR UNIQUENESS, BUT CREATE THE INDEX.
+
+YOU STORAGE SHOULD GUARANTEE E-MAIL UNIQUENESS INDEPENDENTLY OF HOW MANY SOURCES PUSH DATA INTO IT SIMULTANEOUSLY. 
+
+Note that a unique index is not the same as a primary key (which you should have too):
+https://en.wikipedia.org/wiki/Database_index
+
+Your application should work properly in different browsers and on different resolutions (desktop/mobile). And look like a business-oriented professional app (boring, but consistent and accurate). However, you have to get that automatically by properly using CSS component library like ShadCN.
+
+Implement:
+adequate error messages;
+tooltips;
+status messages (informing user about successful operation).
+
+If you use N buttons (separate set of buttons for each row), the grade will be reduced by 20%. You need to implement selection and a toolbar. And align text properly in the cells (check the screenshot below).
+
+Why all users are admins, isn't that strange? Yes, kinda, in reality it won't be implemented this way. But here are two reasons:
+1) To simplify testing (for you and for me).
+2) To simplify your work, because you don't need to think about user roles (in this task).
+
+However, the admin ability to delete themselves is very real and very ofter required — if you have no idea why, you may ask.
+
+https://www.w3schools.com/sql/sql_ref_create_unique_index.asp
+
+Dont use JWT. Instead of JWT use "Simple Session-based auth".
+
+PostgreSQL is already installed on my machine.
