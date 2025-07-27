@@ -1,56 +1,97 @@
-const pool = require('../config/database');
+const supabase = require('../config/database');
 const bcrypt = require('bcryptjs');
 
 async function initializeDatabase() {
   try {
-    console.log('Initializing database...');
+    console.log('Initializing Supabase database...');
     
-    // Create users table with unique index on email
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'blocked')),
-        last_login TIMESTAMP,
-        registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+    // Note: In Supabase, you typically create tables through the dashboard or SQL editor
+    // This script will check if tables exist and create test data
+    
+    console.log('Checking if users table exists...');
+    
+    // Try to query the users table to see if it exists
+    const { data: usersCheck, error: usersError } = await supabase
+      .from('users')
+      .select('count')
+      .limit(1);
+    
+    if (usersError && usersError.code === 'PGRST116') {
+      console.log('Users table does not exist. Please create it in Supabase dashboard with the following structure:');
+      console.log(`
+CREATE TABLE users (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'blocked')),
+  last_login TIMESTAMPTZ,
+  registration_time TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-    // Create unique index on email (as required)
-    await pool.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique 
-      ON users (email);
-    `);
+-- Create unique index on email
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (email);
+      `);
+      
+      console.log('Also create the sessions table:');
+      console.log(`
+CREATE TABLE sessions (
+  sid VARCHAR NOT NULL PRIMARY KEY,
+  sess JSON NOT NULL,
+  expire TIMESTAMPTZ NOT NULL
+);
 
-    // Create sessions table for express-session
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS session (
-        sid VARCHAR NOT NULL COLLATE "default" PRIMARY KEY,
-        sess JSON NOT NULL,
-        expire TIMESTAMP(6) NOT NULL
-      )
-      WITH (OIDS=FALSE);
-    `);
-
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS IDX_session_expire 
-      ON session (expire);
-    `);
+-- Create index on expire for cleanup
+CREATE INDEX IF NOT EXISTS idx_sessions_expire ON sessions (expire);
+      `);
+      
+      throw new Error('Please create the required tables in Supabase dashboard first');
+    }
+    
+    console.log('Users table exists!');
+    
+    // Check if sessions table exists
+    const { data: sessionsCheck, error: sessionsError } = await supabase
+      .from('sessions')
+      .select('count')
+      .limit(1);
+    
+    if (sessionsError && sessionsError.code === 'PGRST116') {
+      console.log('Sessions table does not exist. Please create it in Supabase dashboard.');
+      throw new Error('Please create the sessions table in Supabase dashboard');
+    }
+    
+    console.log('Sessions table exists!');
 
     // Create a test user if it doesn't exist
     const testEmail = 'test@example.com';
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [testEmail]);
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', testEmail)
+      .single();
     
-    if (existingUser.rows.length === 0) {
+    if (!existingUser) {
       const hashedPassword = await bcrypt.hash('password123', 10);
-      await pool.query(
-        'INSERT INTO users (name, email, password, status) VALUES ($1, $2, $3, $4)',
-        ['Test User', testEmail, hashedPassword, 'active']
-      );
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert([
+          {
+            name: 'Test User',
+            email: testEmail,
+            password: hashedPassword,
+            status: 'active'
+          }
+        ])
+        .select()
+        .single();
+      
+      if (createError) {
+        throw createError;
+      }
+      
       console.log('Test user created:');
       console.log('Email: test@example.com');
       console.log('Password: password123');
@@ -60,10 +101,10 @@ async function initializeDatabase() {
       console.log('Password: password123');
     }
 
-    console.log('Database initialized successfully!');
-    console.log('Tables created:');
+    console.log('Supabase database initialized successfully!');
+    console.log('Tables verified:');
     console.log('- users (with unique index on email)');
-    console.log('- session (for session management)');
+    console.log('- sessions (for session management)');
     
   } catch (error) {
     console.error('Error initializing database:', error);

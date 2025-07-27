@@ -1,54 +1,44 @@
 const User = require('../models/User');
+const { sendUnauthorized, sendForbidden, sendError, sendSuccess } = require('../utils/responses');
 
+// Helper function to destroy session and send unauthorized response
+const destroySessionAndUnauthorize = (req, res, message = 'Authentication required') => {
+  req.session.destroy();
+  return sendUnauthorized(res, message, { redirect: '/login' });
+};
 
 const requireAuth = async (req, res, next) => {
   try {
     if (!req.session.userId) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        redirect: '/login'
-      });
+      return sendUnauthorized(res, 'Authentication required', { redirect: '/login' });
     }
 
-    
     const user = await User.findById(req.session.userId);
     
     if (!user) {
-      req.session.destroy();
-      return res.status(401).json({ 
-        error: 'User not found',
-        redirect: '/login'
-      });
+      return destroySessionAndUnauthorize(req, res, 'User not found');
     }
 
     if (user.status === 'blocked') {
       req.session.destroy();
-      return res.status(403).json({ 
-        error: 'Account is blocked',
-        redirect: '/login'
-      });
+      return sendForbidden(res, 'Account is blocked', { redirect: '/login' });
     }
 
     req.user = user;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return sendError(res, 'Internal server error');
   }
 };
-
 
 const redirectIfAuthenticated = async (req, res, next) => {
   try {
     if (req.session.userId) {
       const user = await User.findById(req.session.userId);
       if (user && user.status === 'active') {
-        return res.status(200).json({ 
-          message: 'Already authenticated',
-          redirect: '/dashboard'
-        });
+        return sendSuccess(res, null, 'Already authenticated', 200, { redirect: '/dashboard' });
       } else {
-        
         req.session.destroy();
       }
     }

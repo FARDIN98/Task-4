@@ -1,7 +1,7 @@
 Task #4  
 
 For Front-end just use: Javascript, Typescript, React JS, TailwindCSS latest version, ShadCN
-For Back-end: Node.js, Express.js, PostgreSQL
+For Back-end: Node.js, Express.js, Supabase.
 
 THE FIRST REQUIREMENT: YOU NEED TO CREATE A UNIQUE INDEX IN DATABASE.
 

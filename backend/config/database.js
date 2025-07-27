@@ -1,23 +1,32 @@
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// Local PostgreSQL configuration only
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'user_management',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-});
+// Supabase configuration
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase configuration. Please set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Test connection
-pool.on('connect', () => {
-  console.log('Connected to local PostgreSQL database');
-});
+async function testConnection() {
+  try {
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "table not found" which is ok during setup
+      console.error('Supabase connection error:', error);
+    } else {
+      console.log('Connected to Supabase database');
+    }
+  } catch (err) {
+    console.error('Supabase connection test failed:', err);
+  }
+}
 
-pool.on('error', (err) => {
-  console.error('Database connection error:', err);
-  console.log('Make sure PostgreSQL is running and database exists');
-});
+// Test connection on startup
+testConnection();
 
-module.exports = pool;
+module.exports = supabase;

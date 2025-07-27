@@ -1,21 +1,54 @@
-const pool = require('../config/database');
+const supabase = require('../config/database');
 const bcrypt = require('bcryptjs');
 
 class UserModel {
+  // Common fields for user selection
+  static USER_SELECT_FIELDS = 'id, name, email, status, last_login, registration_time';
+  static USER_PUBLIC_FIELDS = 'id, name, email, status';
+
+  // Helper method for handling Supabase errors
+  static handleSupabaseError(error, customMessage = null) {
+    if (error && error.code !== 'PGRST116') {
+      throw customMessage ? new Error(customMessage) : error;
+    }
+  }
+
+  // Helper method for timestamp
+  static getCurrentTimestamp() {
+    return new Date().toISOString();
+  }
+
   // Create a new user
   static async create(userData) {
     const { name, email, password } = userData;
     const hashedPassword = await bcrypt.hash(password, 10);
     
     try {
-      const result = await pool.query(
-        'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, status, registration_time',
-        [name, email, hashedPassword]
-      );
-      return result.rows[0];
+      const { data, error } = await supabase
+        .from('users')
+        .insert([
+          {
+            name,
+            email,
+            password: hashedPassword,
+            status: 'active',
+            registration_time: this.getCurrentTimestamp()
+          }
+        ])
+        .select(this.USER_SELECT_FIELDS)
+        .single();
+
+      if (error) {
+        if (error.code === '23505' || error.message.includes('duplicate key')) {
+          throw new Error('Email already exists');
+        }
+        throw error;
+      }
+      
+      return data;
     } catch (error) {
-      if (error.code === '23505') { // Unique violation
-        throw new Error('Email already exists');
+      if (error.message === 'Email already exists') {
+        throw error;
       }
       throw error;
     }
@@ -23,56 +56,88 @@ class UserModel {
 
   // Find user by email
   static async findByEmail(email) {
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
-    return result.rows[0];
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    this.handleSupabaseError(error);
+    return data;
   }
 
   // Find user by ID
   static async findById(id) {
-    const result = await pool.query(
-      'SELECT id, name, email, status, last_login, registration_time FROM users WHERE id = $1',
-      [id]
-    );
-    return result.rows[0];
+    const { data, error } = await supabase
+      .from('users')
+      .select(this.USER_SELECT_FIELDS)
+      .eq('id', id)
+      .single();
+
+    this.handleSupabaseError(error);
+    return data;
   }
 
   // Get all users (for admin panel)
   static async findAll() {
-    const result = await pool.query(`
-      SELECT id, name, email, status, last_login, registration_time 
-      FROM users 
-      ORDER BY last_login DESC NULLS LAST, registration_time DESC
-    `);
-    return result.rows;
+    const { data, error } = await supabase
+      .from('users')
+      .select(this.USER_SELECT_FIELDS)
+      .order('last_login', { ascending: false, nullsFirst: false })
+      .order('registration_time', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
   }
 
   // Update user status (block/unblock)
   static async updateStatus(id, status) {
-    const result = await pool.query(
-      'UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING id, name, email, status',
-      [status, id]
-    );
-    return result.rows[0];
+    const { data, error } = await supabase
+      .from('users')
+      .update({ 
+        status, 
+        updated_at: this.getCurrentTimestamp() 
+      })
+      .eq('id', id)
+      .select(this.USER_PUBLIC_FIELDS)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+    
+    return data;
   }
 
   // Delete user
   static async delete(id) {
-    const result = await pool.query(
-      'DELETE FROM users WHERE id = $1 RETURNING id',
-      [id]
-    );
-    return result.rows[0];
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .single();
+
+    if (error) {
+      throw error;
+    }
+    
+    return data;
   }
 
   // Update last login time
   static async updateLastLogin(id) {
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [id]
-    );
+    const { error } = await supabase
+      .from('users')
+      .update({ last_login: this.getCurrentTimestamp() })
+      .eq('id', id);
+
+    if (error) {
+      throw error;
+    }
   }
 
   // Verify password
@@ -82,20 +147,35 @@ class UserModel {
 
   // Block multiple users
   static async blockUsers(userIds) {
-    const result = await pool.query(
-      'UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2) RETURNING id, name, email, status',
-      ['blocked', userIds]
-    );
-    return result.rows;
+    const { data, error } = await supabase
+      .from('users')
+      .update({ 
+        status: 'blocked', 
+        updated_at: this.getCurrentTimestamp() 
+      })
+      .in('id', userIds)
+      .select(this.USER_PUBLIC_FIELDS);
+
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
   }
 
   // Delete multiple users
   static async deleteUsers(userIds) {
-    const result = await pool.query(
-      'DELETE FROM users WHERE id = ANY($1) RETURNING id',
-      [userIds]
-    );
-    return result.rows;
+    const { data, error } = await supabase
+      .from('users')
+      .delete()
+      .in('id', userIds)
+      .select('id');
+
+    if (error) {
+      throw error;
+    }
+    
+    return data || [];
   }
 }
 
